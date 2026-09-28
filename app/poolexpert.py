@@ -115,6 +115,10 @@ def browser_login() -> list[dict]:
                         '[class*="error" i],[class*="valid" i],[id*="error" i],[id*="msg" i],.rwDialogText')]
                         .map(e => e.innerText.trim()).filter(t => t && t.length < 200).slice(0, 3).join(' | ')"""
                 )
+                # PoolExpert reports errors in the URL (?err=...), not on the page.
+                from urllib.parse import parse_qs, urlparse
+                url_err = parse_qs(urlparse(page.url).query).get("err", [""])[0]
+                msg = msg or url_err
                 pxpf_after = page.evaluate("() => (document.querySelector('input[name=pxpf]')||{}).value || ''")
                 LOGIN_FAIL_FILE.write_text(json.dumps({
                     "at": time.time(), "retry_after": time.time() + LOGIN_BACKOFF_SECONDS,
