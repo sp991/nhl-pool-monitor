@@ -1,5 +1,5 @@
 # TrueNAS: Apps > Discover Apps > ⋮ > Install via YAML, then paste this file.
-# Replace /mnt/tank/apps/nhl-pool-monitor with a dataset path on your server.
+# Data lives in the Main/nhl-pool-monitor dataset (included in the Backblaze cloud sync of /mnt/Main).
 services:
   collector:
     image: ghcr.io/sp991/nhl-pool-monitor:latest
@@ -11,8 +11,8 @@ services:
       POOLEXPERT_EMAIL: ${POOLEXPERT_EMAIL:-}
       POOLEXPERT_PASSWORD: ${POOLEXPERT_PASSWORD:-}
     volumes:
-      - /mnt/tank/apps/nhl-pool-monitor/data:/data
-      - /mnt/tank/apps/nhl-pool-monitor/config:/config:ro
+      - /mnt/Main/nhl-pool-monitor/data:/data
+      - /mnt/Main/nhl-pool-monitor/config:/config:ro
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
@@ -26,8 +26,8 @@ services:
     ports:
       - "30050:8501"
     volumes:
-      - /mnt/tank/apps/nhl-pool-monitor/data:/data:ro
-      - /mnt/tank/apps/nhl-pool-monitor/config:/config:ro
+      - /mnt/Main/nhl-pool-monitor/data:/data:ro
+      - /mnt/Main/nhl-pool-monitor/config:/config:ro
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 

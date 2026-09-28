@@ -22,7 +22,7 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
 1. **Yahoo app**: create one at https://developer.yahoo.com/apps/ (Fantasy Sports: Read,
    redirect URI `oob`). Keep the Client ID and Client Secret.
 2. **Folders on TrueNAS**: create `data/` and `config/` in a dataset, e.g.
-   `/mnt/tank/apps/nhl-pool-monitor/`. Copy `config/pools.example.yaml` to
+   `/mnt/Main/nhl-pool-monitor/`. Copy `config/pools.example.yaml` to
    `config/pools.yaml` there and fill it in.
 3. **GHCR access** (image is private): create a GitHub token (classic) with only
    `read:packages`, then in the TrueNAS shell as root: `docker login ghcr.io -u sp991`.

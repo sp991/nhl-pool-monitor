@@ -7,7 +7,7 @@ pools:
   - id: yahoo_famille
     name: "Pool Yahoo famille"
     source: yahoo
-    league_id: "00000"        # from your Yahoo league URL
+    league_id: "133321"       # hockey.fantasysports.yahoo.com/hockey/133321/1
     team_id: 1                # your team number in the league
     # Scoring is read from Yahoo's league settings. Override here only if needed.
 
