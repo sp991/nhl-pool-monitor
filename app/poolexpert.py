@@ -40,33 +40,88 @@ def _load_cookies() -> list[dict]:
         return []
 
 
+LOGIN_FAIL_FILE = DATA_DIR / "poolexpert_login_failed.json"
+LOGIN_FAIL_SHOT = DATA_DIR / "poolexpert_login_failed.png"
+# After a failed sign-in, wait this long before trying again: never hammer the
+# account (repeated failures can lock it) if the password is wrong.
+LOGIN_BACKOFF_SECONDS = 6 * 3600
+SIGNIN_BUTTON = "#ctl00_ph_cc_ucTopUserLoginForm_btnSignIn_input"
+
+
+def _login_blocked_until() -> float:
+    try:
+        return float(json.loads(LOGIN_FAIL_FILE.read_text())["retry_after"])
+    except Exception:
+        return 0.0
+
+
 def browser_login() -> list[dict]:
-    """Sign in with headless Chromium and store the cookies. Runs only when needed."""
+    """Sign in with headless Chromium and store the cookies. Runs only when needed.
+
+    The sign-in form is ASP.NET + Telerik: the "Sign in" control is a plain
+    type=button whose script fills hidden fields (e.g. pxpf) and posts the form,
+    so the fields are typed like a person would and the real button is clicked.
+    """
+    import time
+
     from playwright.sync_api import sync_playwright
 
     email, pwd = os.getenv("POOLEXPERT_EMAIL"), os.getenv("POOLEXPERT_PASSWORD")
     if not email or not pwd:
         raise RuntimeError("POOLEXPERT_EMAIL / POOLEXPERT_PASSWORD are not set")
+    wait = _login_blocked_until() - time.time()
+    if wait > 0:
+        raise RuntimeError(
+            f"PoolExpert sign-in failed recently; next attempt in {wait / 3600:.1f} h "
+            f"(delete {LOGIN_FAIL_FILE.name} in the data folder to retry now)"
+        )
 
     log.info("PoolExpert session expired: signing in with headless browser")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        ctx = browser.new_context(user_agent=UA, locale="en-CA")
+        ctx = browser.new_context(user_agent=UA, locale="en-CA", viewport={"width": 1366, "height": 900})
         page = ctx.new_page()
-        page.goto(f"{BASE}/signinform.aspx", wait_until="networkidle")
-        page.fill(f'input[name="{FORM}email"]', email)
-        page.fill(f'input[name="{FORM}pwd"]', pwd)
-        remember = page.locator(f'input[name="{FORM}remember"]')
-        if remember.count() and not remember.first.is_checked():
-            remember.first.check(force=True)
-        with page.expect_navigation(wait_until="networkidle", timeout=30000):
-            page.press(f'input[name="{FORM}pwd"]', "Enter")
-        if "signinform" in page.url.lower():
-            browser.close()
-            raise RuntimeError("PoolExpert login failed: still on the sign-in page (check credentials)")
-        cookies = ctx.cookies()
-        browser.close()
+        try:
+            page.goto(f"{BASE}/signinform.aspx", wait_until="networkidle", timeout=45000)
+            email_box = page.locator(f'input[name="{FORM}email"]')
+            pwd_box = page.locator(f'input[name="{FORM}pwd"]')
+            email_box.click()
+            email_box.press_sequentially(email, delay=40)
+            pwd_box.click()
+            pwd_box.press_sequentially(pwd, delay=40)
+            remember = page.locator(f'input[name="{FORM}remember"]')
+            if remember.count() and not remember.first.is_checked():
+                remember.first.check(force=True)
+            page.locator(SIGNIN_BUTTON).click()
+            try:
+                page.wait_for_url(lambda u: "signinform" not in u.lower(), timeout=30000)
+            except Exception:
+                pass
+            page.wait_for_load_state("networkidle", timeout=30000)
 
+            if "signinform" in page.url.lower() or pwd_box.count():
+                # Keep evidence for diagnosis (no credentials are in it: the password box is masked).
+                page.screenshot(path=str(LOGIN_FAIL_SHOT), full_page=True)
+                msg = page.evaluate(
+                    """() => [...document.querySelectorAll(
+                        '[class*="error" i],[class*="valid" i],[id*="error" i],[id*="msg" i],.rwDialogText')]
+                        .map(e => e.innerText.trim()).filter(t => t && t.length < 200).slice(0, 3).join(' | ')"""
+                )
+                LOGIN_FAIL_FILE.write_text(json.dumps({
+                    "at": time.time(), "retry_after": time.time() + LOGIN_BACKOFF_SECONDS, "page_message": msg,
+                }))
+                raise RuntimeError(
+                    "PoolExpert sign-in failed"
+                    + (f": PoolExpert says '{msg}'" if msg else " (no message on the page)")
+                    + f". Screenshot saved as {LOGIN_FAIL_SHOT.name} in the data folder; "
+                    "next automatic attempt in 6 h."
+                )
+            cookies = ctx.cookies()
+        finally:
+            browser.close()
+
+    LOGIN_FAIL_FILE.unlink(missing_ok=True)
+    LOGIN_FAIL_SHOT.unlink(missing_ok=True)
     COOKIE_FILE.write_text(json.dumps(cookies))
     log.info("PoolExpert login OK, %d cookies saved", len(cookies))
     return cookies
