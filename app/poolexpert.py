@@ -48,9 +48,16 @@ LOGIN_BACKOFF_SECONDS = 6 * 3600
 SIGNIN_BUTTON = "#ctl00_ph_cc_ucTopUserLoginForm_btnSignIn_input"
 
 
+APP_VERSION = os.getenv("APP_VERSION", "dev")
+
+
 def _login_blocked_until() -> float:
+    """Back off after a failure, but give each newly deployed version one attempt."""
     try:
-        return float(json.loads(LOGIN_FAIL_FILE.read_text())["retry_after"])
+        rec = json.loads(LOGIN_FAIL_FILE.read_text())
+        if rec.get("version") != APP_VERSION:
+            return 0.0
+        return float(rec["retry_after"])
     except Exception:
         return 0.0
 
@@ -92,6 +99,7 @@ def browser_login() -> list[dict]:
             remember = page.locator(f'input[name="{FORM}remember"]')
             if remember.count() and not remember.first.is_checked():
                 remember.first.check(force=True)
+            pxpf_before = page.evaluate("() => (document.querySelector('input[name=pxpf]')||{}).value || ''")
             page.locator(SIGNIN_BUTTON).click()
             try:
                 page.wait_for_url(lambda u: "signinform" not in u.lower(), timeout=30000)
@@ -107,8 +115,15 @@ def browser_login() -> list[dict]:
                         '[class*="error" i],[class*="valid" i],[id*="error" i],[id*="msg" i],.rwDialogText')]
                         .map(e => e.innerText.trim()).filter(t => t && t.length < 200).slice(0, 3).join(' | ')"""
                 )
+                pxpf_after = page.evaluate("() => (document.querySelector('input[name=pxpf]')||{}).value || ''")
                 LOGIN_FAIL_FILE.write_text(json.dumps({
-                    "at": time.time(), "retry_after": time.time() + LOGIN_BACKOFF_SECONDS, "page_message": msg,
+                    "at": time.time(), "retry_after": time.time() + LOGIN_BACKOFF_SECONDS,
+                    "version": APP_VERSION, "page_message": msg,
+                    # Diagnostics only: no credentials, no cookie values.
+                    "final_url": page.url, "title": page.title(),
+                    "pxpf_filled_before_click": bool(pxpf_before),
+                    "pxpf_filled_after": bool(pxpf_after),
+                    "cookie_names": sorted({c["name"] for c in ctx.cookies()}),
                 }))
                 raise RuntimeError(
                     "PoolExpert sign-in failed"

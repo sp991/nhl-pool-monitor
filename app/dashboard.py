@@ -45,6 +45,15 @@ for tab, (pid, info) in zip(tabs, pools.items()):
     with tab:
         if not info.get("ok"):
             st.error(f"Last refresh failed: {info.get('error')}")
+            shot = DB_PATH.parent / "poolexpert_login_failed.png"
+            rec = DB_PATH.parent / "poolexpert_login_failed.json"
+            if "PoolExpert" in str(info.get("error")) and shot.exists():
+                with st.expander("What the server's browser saw at sign-in", expanded=True):
+                    if rec.exists():
+                        details = json.loads(rec.read_text())
+                        details.pop("retry_after", None)
+                        st.json(details)
+                    st.image(str(shot))
             continue
         if info.get("note"):
             st.info(info["note"])

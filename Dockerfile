@@ -8,6 +8,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
     && playwright install --with-deps chromium
 COPY app ./app
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 
 VOLUME ["/data", "/config"]
 EXPOSE 8501
