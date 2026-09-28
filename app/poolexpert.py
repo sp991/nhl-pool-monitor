@@ -25,6 +25,8 @@ COOKIE_FILE = DATA_DIR / "poolexpert_cookies.json"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/128.0 Safari/537.36")
 FORM = "ctl00$ph_cc$ucTopUserLoginForm$"
+# data-type on player links: 1 = G, 2 = team, 3/4/5 = forwards, 6 = D (seen on gcomp.aspx)
+TEAM_TYPE = "2"
 
 
 class SessionExpired(Exception):
@@ -120,6 +122,8 @@ class PoolExpertClient:
         soup = BeautifulSoup(html, "html.parser")
         seen, out = set(), []
         for a in soup.select("a[data-playerid]"):
+            if a.get("data-type") == TEAM_TYPE:  # team slot (e.g. "Avalanche Colorado"), not a player
+                continue
             pid = a.get("data-playerid")
             name = a.get_text(" ", strip=True)
             if not pid or not name or pid in seen:

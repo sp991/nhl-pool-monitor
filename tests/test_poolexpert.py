@@ -6,6 +6,7 @@ HTML = """
 <div class="row"><div><a href="gplayer.aspx?h=202" data-playerid="202">Cale Makar</a></div></div>
 <div class="row"><div><a href="gplayer.aspx?h=101" data-playerid="101">Nathan MacKinnon</a></div></div>
 <a href="gplayer.aspx?h=303">No data attribute</a>
+<a href="gplayer.aspx?h=10017" data-playerid="10017" data-type="2">Avalanche Colorado</a>
 """
 
 
