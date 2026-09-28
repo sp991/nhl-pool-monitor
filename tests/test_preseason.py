@@ -27,3 +27,14 @@ def test_player_without_game_this_season_is_kept():
     cur = merge_seasons(PREV.iloc[[0]].assign(gp=2, goals=1, assists=1), PREV)
     assert set(cur["player_id"]) == {1, 2, 3}
     assert cur.set_index("player_id").loc[1, "gp"] == 2
+
+
+def test_empty_results_are_saved_without_error():
+    import sqlite3
+    from app.collector import _save
+    con = sqlite3.connect(":memory:")
+    _save(con, pd.DataFrame(), "pickups_x")            # nothing to show yet
+    _save(con, pd.DataFrame({"a": [1]}), "roster_x")
+    _save(con, pd.DataFrame(), "roster_x")             # previous table removed
+    names = {r[0] for r in con.execute("SELECT name FROM sqlite_master")}
+    assert names == set()

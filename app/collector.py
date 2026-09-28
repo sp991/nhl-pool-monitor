@@ -61,6 +61,16 @@ class Matcher:
         return hits[0][0] if hits else None
 
 
+def _save(con: sqlite3.Connection, df: pd.DataFrame, table: str) -> None:
+    """Write a result table. An empty frame with no columns (nothing to show yet)
+    can't be written by pandas, so the table is simply removed; the dashboard
+    treats a missing table as empty."""
+    if len(df.columns) == 0:
+        con.execute(f'DROP TABLE IF EXISTS "{table}"')
+    else:
+        df.to_sql(table, con, index=False, if_exists="replace")
+
+
 def merge_seasons(current: pd.DataFrame, previous: pd.DataFrame) -> pd.DataFrame:
     """Current-season stats plus every player known from last season who has
     no game yet this season (with zero stats). Handles an empty current season
@@ -124,9 +134,9 @@ def run_once() -> None:
                 if pool.get("free_agents_allowed", True) else pd.DataFrame()
             )
             with _db() as con:
-                roster.to_sql(f"roster_{pid}", con, index=False, if_exists="replace")
-                adds.to_sql(f"pickups_{pid}", con, index=False, if_exists="replace")
-                scored.head(300).to_sql(f"top_{pid}", con, index=False, if_exists="replace")
+                _save(con, roster, f"roster_{pid}")
+                _save(con, adds, f"pickups_{pid}")
+                _save(con, scored.head(300), f"top_{pid}")
             status["pools"][pid] = {"name": pool.get("name", pid), "ok": True,
                                     "scoring": rules, "unmatched": unmatched,
                                     "note": pool.get("note", "")}
