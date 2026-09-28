@@ -61,17 +61,30 @@ class Matcher:
         return hits[0][0] if hits else None
 
 
+def merge_seasons(current: pd.DataFrame, previous: pd.DataFrame) -> pd.DataFrame:
+    """Current-season stats plus every player known from last season who has
+    no game yet this season (with zero stats). Handles an empty current season
+    (preseason), when the NHL returns no rows at all."""
+    id_cols = ["player_id", "name", "position", "team"]
+    if current.empty:
+        current = pd.DataFrame(columns=previous.columns)
+    missing = previous[~previous["player_id"].isin(current["player_id"])].copy()
+    stat_cols = [c for c in missing.columns if c not in id_cols]
+    missing[stat_cols] = 0
+    frames = [f for f in (current, missing) if not f.empty]
+    out = pd.concat(frames, ignore_index=True) if frames else missing
+    num_cols = [c for c in out.columns if c not in id_cols]
+    out[num_cols] = out[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+    out["player_id"] = out["player_id"].astype(int)
+    return out
+
+
 def run_once() -> None:
     started = dt.datetime.now().isoformat(timespec="seconds")
     nhl = NHLClient()
     sid = season_id()
-    current = _stats(nhl, sid)
     previous = _previous_stats(nhl, previous_season(sid))
-    # Include players with no games yet this season (known from last season).
-    missing = previous[~previous["player_id"].isin(current["player_id"])].copy()
-    stat_cols = [c for c in missing.columns if c not in ("player_id", "name", "position", "team")]
-    missing[stat_cols] = 0
-    current = pd.concat([current, missing], ignore_index=True)
+    current = merge_seasons(_stats(nhl, sid), previous)
 
     games = dict(nhl.games_this_week())
     matcher = Matcher(current)

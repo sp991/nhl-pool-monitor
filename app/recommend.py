@@ -34,7 +34,9 @@ def pickups(
     s["group"] = s["position"].map(_group)
     s["games_week"] = s["team"].map(games).fillna(0).astype(int)
     mine = s[s["player_id"].isin(roster_ids)]
-    pool = s[~s["player_id"].isin(taken_ids | roster_ids) & (s["gp"] > 0)]
+    # fpg > 0 rather than gp > 0: in preseason nobody has played yet, and
+    # last season's rate still makes a player a valid pickup.
+    pool = s[~s["player_id"].isin(taken_ids | roster_ids) & (s["fpg"] > 0)]
 
     recs = []
     for grp, mine_g in mine.groupby("group"):
