@@ -124,6 +124,8 @@ def run_once() -> None:
                 unmatched = [n for n in roster_names if matcher.resolve(n) is None]
             else:
                 rules = pool.get("scoring", {})
+                # Players owned by other teams (manual pools): excluded from pickup ideas.
+                taken = {matcher.resolve(n) for n in pool.get("taken", [])} - {None}
                 mine = {matcher.resolve(n) for n in pool.get("roster", [])} - {None}
                 unmatched = [n for n in pool.get("roster", []) if matcher.resolve(n) is None]
 
