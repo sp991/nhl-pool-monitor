@@ -20,7 +20,7 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
 ## One-time setup
 
 1. **Yahoo app**: create one at https://developer.yahoo.com/apps/ (Fantasy Sports: Read,
-   redirect URI `oob`). Keep the Client ID and Client Secret.
+   redirect URI `https://localhost:8080`). Keep the Client ID and Client Secret.
 2. **Folders on TrueNAS**: create `data/` and `config/` in a dataset, e.g.
    `/mnt/Main/nhl-pool-monitor/`. Copy `config/pools.example.yaml` to
    `config/pools.yaml` there and fill it in.
@@ -30,7 +30,8 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
    with your dataset path and Yahoo keys.
 5. **Yahoo login, once**: in the TrueNAS shell,
    `docker exec -it <collector-container> python -m app.yahoo_login`, open the printed URL,
-   approve, paste the code. The token is stored in `data/.env` and refreshes itself.
+   approve, then copy the code from the address bar (the page itself
+   fails to load: `https://localhost:8080/?code=...`) and paste it. The token is stored in `data/.env` and refreshes itself.
 
 ## PoolExpert access
 
