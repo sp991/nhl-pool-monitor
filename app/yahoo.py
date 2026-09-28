@@ -47,6 +47,8 @@ def _query(league_id: str, interactive: bool = False):
         yahoo_access_token_json=token,
         env_file_location=DATA_DIR,
         save_token_data_to_env_file=True,
+        # Inside a container there is no browser to open: print the login link instead.
+        browser_callback=False,
     )
 
 

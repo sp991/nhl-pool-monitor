@@ -29,9 +29,8 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
 4. **Install**: Apps → Discover Apps → ⋮ → Install via YAML, paste `docker-compose.yml`
    then replace the four `PASTE_...` values (Yahoo keys, PoolExpert sign-in).
 5. **Yahoo login, once**: in the TrueNAS shell,
-   `docker exec -it <collector-container> python -m app.yahoo_login`, open the printed URL,
-   approve, then copy the code from the address bar (the page itself
-   fails to load: `https://localhost:8080/?code=...`) and paste it. The token is stored in `data/.env` and refreshes itself.
+   `sudo docker exec -it ix-nhl-pool-monitor-collector-1 python -m app.yahoo_login`, open the
+   printed AUTHORIZATION URL, approve, and paste the code Yahoo shows at "Enter verifier". The token is stored in `data/.env` and refreshes itself.
 
 ## PoolExpert access
 
