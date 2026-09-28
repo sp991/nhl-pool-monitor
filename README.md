@@ -6,8 +6,8 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
 ## How it works
 
 - **collector** refreshes every 20 minutes: NHL season stats and this week's schedule
-  (public NHL API), Yahoo rosters and scoring (official Yahoo API through `yfpy`), and the
-  PoolExpert roster from `config/pools.yaml`.
+  (public NHL API), Yahoo rosters and scoring (official Yahoo API through `yfpy`), and
+  PoolExpert rosters: yours and every team's, so their players aren't suggested as pickups.
 - **Scoring**: points per game under each pool's rules. Early in the season it blends
   with last season until a player has 20 games, so two lucky games don't dominate.
 - **Recommendations**: free agents whose points per game beat your weakest player at the
