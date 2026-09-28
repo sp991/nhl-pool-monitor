@@ -15,3 +15,20 @@ def test_player_links_are_parsed_once():
         {"pe_id": 101, "name": "Nathan MacKinnon"},
         {"pe_id": 202, "name": "Cale Makar"},
     ]
+
+
+def test_redirect_to_demo_pool_means_signed_out(monkeypatch):
+    import httpx
+    import pytest
+    from app import poolexpert
+
+    def handler(request):
+        if "gcomp.aspx" in request.url.path:
+            return httpx.Response(302, headers={"Location": "https://www.poolexpert.com/en/grank.aspx?j=57146"})
+        return httpx.Response(200, text="<html>demo pool</html>")
+
+    c = PoolExpertClient(188663, 2289042)
+    c.http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    with pytest.raises(poolexpert.SessionExpired):
+        c._get("gcomp.aspx", {"ba": 2289042})
+    assert "demo" in c._get("grank.aspx", {"j": 188663})   # no redirect: fine

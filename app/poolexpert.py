@@ -85,7 +85,13 @@ class PoolExpertClient:
     def _get(self, path: str, params: dict | None = None) -> str:
         r = self.http.get(f"{BASE}/{path}", params=params)
         r.raise_for_status()
-        if "signinform" in str(r.url).lower() or f'name="{FORM}pwd"' in r.text:
+        final = str(r.url).lower()
+        if "signinform" in final or f'name="{FORM}pwd"' in r.text:
+            raise SessionExpired
+        # When not signed in, private pages quietly redirect elsewhere (e.g. to the
+        # public demo pool) instead of the sign-in page.
+        if r.history and path.lower() not in final:
+            log.info("PoolExpert redirected %s to %s: treating session as expired", path, r.url)
             raise SessionExpired
         return r.text
 
@@ -95,7 +101,13 @@ class PoolExpertClient:
             html = self._get(path, params)
         except SessionExpired:
             self.http = self._client(browser_login())
-            html = self._get(path, params)
+            try:
+                html = self._get(path, params)
+            except SessionExpired:
+                raise RuntimeError(
+                    f"PoolExpert still redirects {path} after signing in: check the pool/entry ids "
+                    "and that this account belongs to the pool"
+                ) from None
         return html
 
     def _select_pool(self) -> None:
