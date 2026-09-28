@@ -9,27 +9,27 @@ pools:
     source: yahoo
     league_id: "00000"        # from your Yahoo league URL
     team_id: 1                # your team number in the league
-    # If omitted, scoring is read from Yahoo's league settings.
-    # scoring:
-    #   skater: { goals: 2, assists: 1 }
-    #   goalie: { wins: 2, shutouts: 2 }
-    roster_size: 18
+    # Scoring is read from Yahoo's league settings. Override here only if needed.
 
   - id: poolexpert
-    name: "PoolExpert"
-    source: manual            # roster entered below until automatic import exists
+    name: "PoolExpert – LesEntrepotsAB"
+    source: poolexpert
+    pool_id: 188663
+    entry_id: 2289042
+    free_agents_allowed: true
+    note: "The pool administrator makes all roster changes: send suggested moves to the admin."
+    # From grules.aspx. Forwards and defense score the same.
+    # Not modelled yet: OT goals/assists, OT/SO wins, SO losses and goals, hat tricks,
+    # player of the week/month, goalie goals (15) and assists (5), team slot.
     scoring:
       skater:
-        goals: 1
+        goals: 2
         assists: 1
+        plus_minus: 0.5
+        ppp: 1        # 1 bonus per PP goal and per PP assist
+        shp: 1        # 1 bonus per SH goal and per SH assist
+        gwg: 1
       goalie:
         wins: 2
-        shutouts: 2
         ot_losses: 1
-    free_agents_allowed: true # set false for a box pool with no in-season moves
-    roster:
-      # NHL player IDs are in nhl.com player URLs, e.g. .../player/connor-mcdavid-8478402
-      # Names also work; they are matched against the NHL player list.
-      - Connor McDavid
-      - Cale Makar
-      - Igor Shesterkin
+        shutouts: 3

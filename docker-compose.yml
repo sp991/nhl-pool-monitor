@@ -8,6 +8,8 @@ services:
       TZ: America/Toronto
       YAHOO_CONSUMER_KEY: ${YAHOO_CONSUMER_KEY:-}
       YAHOO_CONSUMER_SECRET: ${YAHOO_CONSUMER_SECRET:-}
+      POOLEXPERT_EMAIL: ${POOLEXPERT_EMAIL:-}
+      POOLEXPERT_PASSWORD: ${POOLEXPERT_PASSWORD:-}
     volumes:
       - /mnt/tank/apps/nhl-pool-monitor/data:/data
       - /mnt/tank/apps/nhl-pool-monitor/config:/config:ro

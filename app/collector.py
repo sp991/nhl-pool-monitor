@@ -10,7 +10,7 @@ import sys
 import pandas as pd
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from . import recommend, scoring, yahoo
+from . import poolexpert, recommend, scoring, yahoo
 from .config import DB_PATH, load_pools
 from .nhl import NHLClient, previous_season, season_id
 
@@ -51,7 +51,11 @@ class Matcher:
         if isinstance(name, int) or str(name).isdigit():
             pid = int(name)
             return pid if pid in self.ids else None
-        hits = self.by_name.get(yahoo.norm_name(str(name)), [])
+        name = str(name)
+        if "," in name:  # "McDavid, Connor" -> "Connor McDavid"
+            last, first = name.split(",", 1)
+            name = f"{first.strip()} {last.strip()}"
+        hits = self.by_name.get(yahoo.norm_name(name), [])
         if len(hits) > 1 and team:
             hits = [h for h in hits if h[1] == team] or hits
         return hits[0][0] if hits else None
@@ -88,6 +92,13 @@ def run_once() -> None:
                         mine = ids
                 unmatched = [p["name"] for p in teams.get(int(pool["team_id"]), [])
                              if matcher.resolve(p["name"], p["team"]) is None]
+            elif pool.get("source") == "poolexpert":
+                rules = pool.get("scoring", {})
+                pe = poolexpert.PoolExpertClient(int(pool["pool_id"]), int(pool["entry_id"]))
+                roster_names = [p["name"] for p in pe.my_roster()]
+                mine = {matcher.resolve(n) for n in roster_names} - {None}
+                taken = {matcher.resolve(p["name"]) for p in pe.all_rostered()} - {None}
+                unmatched = [n for n in roster_names if matcher.resolve(n) is None]
             else:
                 rules = pool.get("scoring", {})
                 mine = {matcher.resolve(n) for n in pool.get("roster", [])} - {None}
@@ -104,7 +115,8 @@ def run_once() -> None:
                 adds.to_sql(f"pickups_{pid}", con, index=False, if_exists="replace")
                 scored.head(300).to_sql(f"top_{pid}", con, index=False, if_exists="replace")
             status["pools"][pid] = {"name": pool.get("name", pid), "ok": True,
-                                    "scoring": rules, "unmatched": unmatched}
+                                    "scoring": rules, "unmatched": unmatched,
+                                    "note": pool.get("note", "")}
             log.info("%s: %d rostered, %d pickup ideas", pid, len(roster), len(adds))
         except Exception as e:  # keep other pools running
             log.exception("Pool %s failed", pid)

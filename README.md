@@ -32,6 +32,14 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
    `docker exec -it <collector-container> python -m app.yahoo_login`, open the printed URL,
    approve, paste the code. The token is stored in `data/.env` and refreshes itself.
 
+## PoolExpert access
+
+PoolExpert has no API, so pages are read as HTML. Its sign-in form uses a JavaScript
+anti-bot field, so the collector signs in with headless Chromium **only when the saved
+session has expired** ("remember me" checked), saves the cookies to `data/`, and does all
+regular reads with plain HTTP. Set `POOLEXPERT_EMAIL` and `POOLEXPERT_PASSWORD` in the app's
+environment. The pool admin makes all roster changes, so suggestions are to send to the admin.
+
 ## Local development
 
 ```bash
@@ -43,7 +51,7 @@ streamlit run app/dashboard.py
 
 ## Roadmap
 
-- Automatic PoolExpert roster import
-- Treat other PoolExpert teams' players as taken
+- PoolExpert bonuses not yet modelled: OT/SO, hat tricks, player of the week/month, goalie points
+- Live game-night view from PoolExpert's real-time endpoint
 - Injury and goalie-start alerts through Home Assistant
 - Optional AI-written daily summary

@@ -41,6 +41,8 @@ for tab, (pid, info) in zip(tabs, pools.items()):
         if not info.get("ok"):
             st.error(f"Last refresh failed: {info.get('error')}")
             continue
+        if info.get("note"):
+            st.info(info["note"])
         if info.get("unmatched"):
             st.warning("Players not matched to NHL data: " + ", ".join(info["unmatched"]))
 
