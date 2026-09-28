@@ -38,5 +38,3 @@ services:
     command: ["--label-enable", "--cleanup", "--interval", "600"]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # GHCR login for the private image: created once with `docker login ghcr.io`
-      - /root/.docker/config.json:/config.json:ro

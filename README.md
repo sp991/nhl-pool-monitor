@@ -24,10 +24,10 @@ player with each pool's own rules, and suggests moves. Runs on TrueNAS as a Dock
 2. **Folders on TrueNAS**: create `data/` and `config/` in a dataset, e.g.
    `/mnt/Main/nhl-pool-monitor/`. Copy `config/pools.example.yaml` to
    `config/pools.yaml` there and fill it in.
-3. **GHCR access** (image is private): create a GitHub token (classic) with only
-   `read:packages`, then in the TrueNAS shell as root: `docker login ghcr.io -u sp991`.
+3. **Image**: `ghcr.io/sp991/nhl-pool-monitor` is public (code only, no secrets), so
+   TrueNAS and Watchtower pull it without a registry login.
 4. **Install**: Apps → Discover Apps → ⋮ → Install via YAML, paste `docker-compose.yml`
-   with your dataset path and Yahoo keys.
+   then replace the four `PASTE_...` values (Yahoo keys, PoolExpert sign-in).
 5. **Yahoo login, once**: in the TrueNAS shell,
    `docker exec -it <collector-container> python -m app.yahoo_login`, open the printed URL,
    approve, then copy the code from the address bar (the page itself
