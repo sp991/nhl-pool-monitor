@@ -1,0 +1,40 @@
+# TrueNAS: Apps > Discover Apps > ⋮ > Install via YAML, then paste this file.
+# Replace /mnt/tank/apps/nhl-pool-monitor with a dataset path on your server.
+services:
+  collector:
+    image: ghcr.io/sp991/nhl-pool-monitor:latest
+    restart: unless-stopped
+    environment:
+      TZ: America/Toronto
+      YAHOO_CONSUMER_KEY: ${YAHOO_CONSUMER_KEY:-}
+      YAHOO_CONSUMER_SECRET: ${YAHOO_CONSUMER_SECRET:-}
+    volumes:
+      - /mnt/tank/apps/nhl-pool-monitor/data:/data
+      - /mnt/tank/apps/nhl-pool-monitor/config:/config:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  dashboard:
+    image: ghcr.io/sp991/nhl-pool-monitor:latest
+    restart: unless-stopped
+    command: ["streamlit", "run", "app/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+    environment:
+      TZ: America/Toronto
+      PYTHONPATH: /srv
+    ports:
+      - "30050:8501"
+    volumes:
+      - /mnt/tank/apps/nhl-pool-monitor/data:/data:ro
+      - /mnt/tank/apps/nhl-pool-monitor/config:/config:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # Pulls new images pushed by GitHub Actions and restarts the two services above.
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    command: ["--label-enable", "--cleanup", "--interval", "600"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # GHCR login for the private image: created once with `docker login ghcr.io`
+      - /root/.docker/config.json:/config.json:ro

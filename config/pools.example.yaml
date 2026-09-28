@@ -1,0 +1,35 @@
+# Copy to config/pools.yaml (not committed) and fill in.
+# Points per stat. Any stat not listed counts for 0.
+# Skater stat keys: goals, assists, points, plus_minus, pim, ppp, shp, gwg, shots, hits, blocks, fow
+# Goalie stat keys: wins, losses, ot_losses, saves, goals_against, shutouts
+
+pools:
+  - id: yahoo_famille
+    name: "Pool Yahoo famille"
+    source: yahoo
+    league_id: "00000"        # from your Yahoo league URL
+    team_id: 1                # your team number in the league
+    # If omitted, scoring is read from Yahoo's league settings.
+    # scoring:
+    #   skater: { goals: 2, assists: 1 }
+    #   goalie: { wins: 2, shutouts: 2 }
+    roster_size: 18
+
+  - id: poolexpert
+    name: "PoolExpert"
+    source: manual            # roster entered below until automatic import exists
+    scoring:
+      skater:
+        goals: 1
+        assists: 1
+      goalie:
+        wins: 2
+        shutouts: 2
+        ot_losses: 1
+    free_agents_allowed: true # set false for a box pool with no in-season moves
+    roster:
+      # NHL player IDs are in nhl.com player URLs, e.g. .../player/connor-mcdavid-8478402
+      # Names also work; they are matched against the NHL player list.
+      - Connor McDavid
+      - Cale Makar
+      - Igor Shesterkin
