@@ -17,7 +17,7 @@ def test_preseason_empty_current_season():
     assert (cur["gp"] == 0).all() and (cur["goals"] == 0).all()
 
     s = scoring.score(cur, PREV, RULES).set_index("player_id")
-    assert abs(s.loc[1, "fpg"] - 140 / 80) < 1e-9   # last season's rate only
+    assert s.loc[1, "fpg"] > s.loc[3, "fpg"] > s.loc[2, "fpg"]   # last season decides
 
     recs = recommend.pickups(scoring.score(cur, PREV, RULES), {1, 2}, set(), {})
     assert list(recs["add"]) == ["Free Agent"] and recs.loc[0, "drop"] == "Depth"
