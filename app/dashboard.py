@@ -27,8 +27,13 @@ def table(name: str) -> pd.DataFrame:
 
 
 meta = table("meta")
-status = json.loads(meta.set_index("k").loc["status", "v"]) if not meta.empty else {}
+kv = dict(zip(meta["k"], meta["v"])) if not meta.empty else {}
+status = json.loads(kv["status"]) if "status" in kv else {}
 st.caption(f"Last refresh: {status.get('last_run', '—')} · Season {status.get('season', '—')}")
+if "last_error" in kv:
+    err = json.loads(kv["last_error"])
+    if err.get("at", "") > status.get("last_run", ""):
+        st.error(f"Last refresh attempt failed at {err['at']}: {err['error']}")
 
 pools = status.get("pools", {})
 if not pools:

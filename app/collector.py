@@ -140,14 +140,31 @@ def run_once() -> None:
         con.execute("INSERT OR REPLACE INTO meta VALUES ('status', ?)", (json.dumps(status),))
 
 
+def safe_run() -> None:
+    """Never let one failed refresh kill the container: log it, show it on the
+    dashboard, and try again at the next interval."""
+    try:
+        run_once()
+    except Exception as e:
+        log.exception("Refresh failed")
+        try:
+            with _db() as con:
+                con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+                con.execute("INSERT OR REPLACE INTO meta VALUES ('last_error', ?)",
+                            (json.dumps({"at": dt.datetime.now().isoformat(timespec="seconds"),
+                                         "error": str(e)}),))
+        except Exception:
+            log.exception("Could not record the error")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if "--once" in sys.argv:
         run_once()
         return
-    run_once()
+    safe_run()
     sched = BlockingScheduler()
-    sched.add_job(run_once, "interval", minutes=REFRESH_MINUTES, max_instances=1, coalesce=True)
+    sched.add_job(safe_run, "interval", minutes=REFRESH_MINUTES, max_instances=1, coalesce=True)
     log.info("Refreshing every %d minutes", REFRESH_MINUTES)
     sched.start()
 

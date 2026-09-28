@@ -32,7 +32,9 @@ def previous_season(sid: int) -> int:
 
 class NHLClient:
     def __init__(self, timeout: float = 30.0):
-        self.http = httpx.Client(timeout=timeout, headers={"User-Agent": "nhl-pool-monitor"})
+        self.http = httpx.Client(
+            timeout=timeout, headers={"User-Agent": "nhl-pool-monitor"}, follow_redirects=True
+        )
 
     def _report(self, kind: str, report: str, sid: int) -> list[dict]:
         """Page through a stats report (regular season only)."""
@@ -109,10 +111,15 @@ class NHLClient:
         return out
 
     def games_this_week(self) -> Counter:
-        """Number of games each team plays in the current schedule week."""
-        r = self.http.get(f"{WEB}/schedule/now")
-        r.raise_for_status()
+        """Number of games each team plays in the current schedule week.
+        Non-fatal: returns an empty count if the schedule can't be read."""
         counts: Counter = Counter()
+        try:
+            r = self.http.get(f"{WEB}/schedule/now")  # redirects to /schedule/<date>
+            r.raise_for_status()
+        except httpx.HTTPError:
+            log.exception("Could not read the NHL schedule")
+            return counts
         for day in r.json().get("gameWeek", []):
             for g in day.get("games", []):
                 counts[g["homeTeam"]["abbrev"]] += 1
