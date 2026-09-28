@@ -25,7 +25,18 @@ def norm_name(name: str) -> str:
     return re.sub(r"[^a-z ]", "", s.lower()).strip()
 
 
-def _query(league_id: str):
+def _query(league_id: str, interactive: bool = False):
+    from dotenv import load_dotenv
+
+    # The token is written to DATA_DIR/.env by the one-time login (another process),
+    # so re-read it on every run.
+    load_dotenv(DATA_DIR / ".env", override=True)
+    token = os.getenv("YAHOO_ACCESS_TOKEN_JSON") or None
+    if not token and not interactive:
+        raise RuntimeError(
+            "Yahoo not authorized yet: run `python -m app.yahoo_login` once in the collector container"
+        )
+
     from yfpy.query import YahooFantasySportsQuery
 
     return YahooFantasySportsQuery(
@@ -33,7 +44,7 @@ def _query(league_id: str):
         game_code="nhl",
         yahoo_consumer_key=os.getenv("YAHOO_CONSUMER_KEY"),
         yahoo_consumer_secret=os.getenv("YAHOO_CONSUMER_SECRET"),
-        yahoo_access_token_json=os.getenv("YAHOO_ACCESS_TOKEN_JSON") or None,
+        yahoo_access_token_json=token,
         env_file_location=DATA_DIR,
         save_token_data_to_env_file=True,
     )

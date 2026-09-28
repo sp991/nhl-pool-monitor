@@ -13,7 +13,7 @@ def main() -> None:
     pool = next((p for p in load_pools() if p.get("source") == "yahoo"), None)
     if not pool:
         raise SystemExit("No pool with source: yahoo in config.")
-    league = _query(pool["league_id"]).get_league_metadata()
+    league = _query(pool["league_id"], interactive=True).get_league_metadata()
     print(f"Connected to Yahoo league: {getattr(league, 'name', pool['league_id'])}")
 
 
