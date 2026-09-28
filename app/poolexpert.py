@@ -92,10 +92,21 @@ def browser_login() -> list[dict]:
             page.goto(f"{BASE}/signinform.aspx", wait_until="networkidle", timeout=45000)
             email_box = page.locator(f'input[name="{FORM}email"]')
             pwd_box = page.locator(f'input[name="{FORM}pwd"]')
-            email_box.click()
-            email_box.press_sequentially(email, delay=40)
-            pwd_box.click()
-            pwd_box.press_sequentially(pwd, delay=40)
+            checks = {}
+            for key, box, value in (("email", email_box, email), ("password", pwd_box, pwd)):
+                # Clear anything already in the field (e.g. Telerik placeholder text),
+                # type like a person, then read back; fall back to fill() if it differs.
+                box.click()
+                box.press("Control+a")
+                box.press("Delete")
+                box.press_sequentially(value, delay=40)
+                box.press("Tab")
+                if box.input_value() != value:
+                    box.fill(value)
+                    box.dispatch_event("change")
+                    box.dispatch_event("blur")
+                # Diagnostics record yes/no only, never the values.
+                checks[f"{key}_field_matches"] = box.input_value() == value
             remember = page.locator(f'input[name="{FORM}remember"]')
             if remember.count() and not remember.first.is_checked():
                 remember.first.check(force=True)
@@ -122,7 +133,7 @@ def browser_login() -> list[dict]:
                 pxpf_after = page.evaluate("() => (document.querySelector('input[name=pxpf]')||{}).value || ''")
                 LOGIN_FAIL_FILE.write_text(json.dumps({
                     "at": time.time(), "retry_after": time.time() + LOGIN_BACKOFF_SECONDS,
-                    "version": APP_VERSION, "page_message": msg,
+                    "version": APP_VERSION, "page_message": msg, **checks,
                     # Diagnostics only: no credentials, no cookie values.
                     "final_url": page.url, "title": page.title(),
                     "pxpf_filled_before_click": bool(pxpf_before),
