@@ -116,7 +116,12 @@ def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> li
                 page.wait_for_url(lambda u: "signinform" not in u.lower(), timeout=30000)
             except Exception:
                 pass
-            page.wait_for_load_state("networkidle", timeout=30000)
+            # Not "networkidle": PoolExpert pages keep polling (live stats, ads) and may
+            # never go quiet. A timeout here is harmless; the URL check below decides.
+            try:
+                page.wait_for_load_state("load", timeout=30000)
+            except Exception:
+                log.info("PoolExpert page after sign-in was slow to finish loading; continuing")
 
             if "signinform" in page.url.lower() or pwd_box.count():
                 # Keep evidence for diagnosis (no credentials are in it: the password box is masked).
@@ -150,10 +155,13 @@ def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> li
             # bounce to the public demo pool until one is opened. Open ours in the browser
             # so the saved session already points to it, and note where the roster lands.
             if pool_id:
-                page.goto(f"{BASE}/grank.aspx?j={pool_id}", wait_until="networkidle", timeout=45000)
-                if entry_id:
-                    page.goto(f"{BASE}/gcomp.aspx?ba={entry_id}", wait_until="networkidle", timeout=45000)
-                    log.info("PoolExpert roster page after sign-in: %s", page.url)
+                try:
+                    page.goto(f"{BASE}/grank.aspx?j={pool_id}", wait_until="domcontentloaded", timeout=45000)
+                    if entry_id:
+                        page.goto(f"{BASE}/gcomp.aspx?ba={entry_id}", wait_until="domcontentloaded", timeout=45000)
+                        log.info("PoolExpert roster page after sign-in: %s", page.url)
+                except Exception as e:  # the HTTP client selects the pool again anyway
+                    log.warning("PoolExpert: opening the pool after sign-in failed: %s", e)
             cookies = ctx.cookies()
         finally:
             browser.close()
