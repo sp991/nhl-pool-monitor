@@ -48,7 +48,7 @@ for tab, (pid, info) in zip(tabs, pools.items()):
             shot = DB_PATH.parent / "poolexpert_login_failed.png"
             rec = DB_PATH.parent / "poolexpert_login_failed.json"
             if "PoolExpert" in str(info.get("error")) and shot.exists():
-                with st.expander("What the server's browser saw at sign-in", expanded=True):
+                with st.expander("What the server's browser saw", expanded=True):
                     if rec.exists():
                         details = json.loads(rec.read_text())
                         details.pop("retry_after", None)

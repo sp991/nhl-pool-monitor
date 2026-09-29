@@ -45,6 +45,8 @@ LOGIN_FAIL_SHOT = DATA_DIR / "poolexpert_login_failed.png"
 # After a failed sign-in, wait this long before trying again: never hammer the
 # account (repeated failures can lock it) if the password is wrong.
 LOGIN_BACKOFF_SECONDS = 6 * 3600
+# Signed in but the roster still bounces: retry less often than every 20 min.
+ROSTER_BACKOFF_SECONDS = 2 * 3600
 SIGNIN_BUTTON = "#ctl00_ph_cc_ucTopUserLoginForm_btnSignIn_input"
 
 
@@ -60,6 +62,52 @@ def _login_blocked_until() -> float:
         return float(rec["retry_after"])
     except Exception:
         return 0.0
+
+
+def _open_pool_in_browser(page, pool_id: int, entry_id: int | None) -> dict:
+    """After sign-in: note what the browser sees, open our pool the way a person would,
+    and report whether the roster page is reachable. Diagnostics hold no credentials."""
+    def goto(url):
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        except Exception as e:
+            log.warning("PoolExpert: loading %s was slow or failed: %s", url, e)
+
+    def state():
+        return page.evaluate(
+            """([pool, entry]) => {
+                const links = [...document.querySelectorAll('a[href]')];
+                const txt = document.body ? document.body.innerText : '';
+                return {
+                  logout: links.some(a => /logout|signout|d.connexion/i.test(a.href + ' ' + a.innerText)),
+                  pool_links: links.map(a => a.href)
+                    .filter(h => h.includes('j=' + pool) || (entry && h.includes('ba=' + entry)))
+                    .slice(0, 5),
+                  mentions_pool: /LesEntrepotsAB/i.test(txt),
+                };
+            }""",
+            [str(pool_id), str(entry_id or "")],
+        )
+
+    diag = {"landing_url": page.url, "landing_title": page.title()}
+    s = state()
+    diag.update(signed_in=s["logout"], landing_pool_links=s["pool_links"],
+                landing_mentions_pool=s["mentions_pool"])
+    if not s["pool_links"]:  # look for "my pools" links on the home page
+        goto(f"{BASE}/")
+        s = state()
+        diag.update(home_url=page.url, home_pool_links=s["pool_links"],
+                    signed_in=diag["signed_in"] or s["logout"])
+    goto(s["pool_links"][0] if s["pool_links"] else f"{BASE}/grank.aspx?j={pool_id}")
+    diag["after_pool_url"] = page.url
+    if entry_id:
+        goto(f"{BASE}/gcomp.aspx?ba={entry_id}")
+        diag["roster_url"] = page.url
+        diag["roster_ok"] = "gcomp" in page.url.lower()
+    else:
+        diag["roster_ok"] = True
+    log.info("PoolExpert after sign-in: %s", {k: v for k, v in diag.items() if "links" not in k})
+    return diag
 
 
 def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> list[dict]:
@@ -79,7 +127,7 @@ def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> li
     wait = _login_blocked_until() - time.time()
     if wait > 0:
         raise RuntimeError(
-            f"PoolExpert sign-in failed recently; next attempt in {wait / 3600:.1f} h "
+            f"PoolExpert: the last sign-in attempt had a problem (details below); next attempt in {wait / 3600:.1f} h "
             f"(delete {LOGIN_FAIL_FILE.name} in the data folder to retry now)"
         )
 
@@ -152,16 +200,25 @@ def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> li
                     "next automatic attempt in 6 h."
                 )
             # A fresh session has no active pool, and private pages (roster, all-in-one)
-            # bounce to the public demo pool until one is opened. Open ours in the browser
-            # so the saved session already points to it, and note where the roster lands.
+            # bounce to the public demo pool until one is opened. Check that we are really
+            # signed in, follow the site's own link to our pool, then try the roster.
             if pool_id:
-                try:
-                    page.goto(f"{BASE}/grank.aspx?j={pool_id}", wait_until="domcontentloaded", timeout=45000)
-                    if entry_id:
-                        page.goto(f"{BASE}/gcomp.aspx?ba={entry_id}", wait_until="domcontentloaded", timeout=45000)
-                        log.info("PoolExpert roster page after sign-in: %s", page.url)
-                except Exception as e:  # the HTTP client selects the pool again anyway
-                    log.warning("PoolExpert: opening the pool after sign-in failed: %s", e)
+                diag = _open_pool_in_browser(page, pool_id, entry_id)
+                if not diag["roster_ok"]:
+                    page.screenshot(path=str(LOGIN_FAIL_SHOT), full_page=True)
+                    LOGIN_FAIL_FILE.write_text(json.dumps({
+                        "at": time.time(), "retry_after": time.time() + ROSTER_BACKOFF_SECONDS,
+                        "version": APP_VERSION, "stage": "after sign-in, opening the pool",
+                        **diag,
+                        "cookie_names": sorted({c["name"] for c in ctx.cookies()
+                                                if "poolexpert" in c["domain"]}),
+                    }))
+                    raise RuntimeError(
+                        "PoolExpert: signed in"
+                        + ("" if diag["signed_in"] else " (but no LOGOUT link found)")
+                        + ", yet the roster page still opens the demo pool. Details and a "
+                        "screenshot are below; next attempt in 2 h."
+                    )
             cookies = ctx.cookies()
         finally:
             browser.close()
