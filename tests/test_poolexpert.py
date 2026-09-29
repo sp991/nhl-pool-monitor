@@ -33,3 +33,33 @@ def test_redirect_to_demo_pool_means_signed_out(monkeypatch):
     with pytest.raises(poolexpert.SessionExpired):
         c._get("gcomp.aspx", {"ba": 2289042})
     assert "demo" in c._get("grank.aspx", {"j": 188663})   # no redirect: fine
+
+
+def test_pool_is_selected_again_after_sign_in(monkeypatch):
+    """A fresh session only serves the roster once our pool has been opened."""
+    import httpx
+    from app import poolexpert
+
+    state = {"signed_in": False, "pool": None}
+
+    def handler(request):
+        path, q = request.url.path, dict(request.url.params)
+        if "grank.aspx" in path:
+            if state["signed_in"]:
+                state["pool"] = q.get("j")
+            return httpx.Response(200, text="<html>ranking</html>")
+        if "gcomp.aspx" in path and state["pool"] == "188663":
+            return httpx.Response(200, text='<a data-playerid="1">Player One</a>')
+        return httpx.Response(302, headers={"Location": "https://www.poolexpert.com/en/grank.aspx?j=57146"})
+
+    def fake_client(cookies):
+        return httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+
+    def fake_login(pool_id=None, entry_id=None):
+        state["signed_in"] = True
+        return []
+
+    monkeypatch.setattr(poolexpert, "browser_login", fake_login)
+    monkeypatch.setattr(PoolExpertClient, "_client", staticmethod(fake_client))
+    c = PoolExpertClient(188663, 2289042)
+    assert c.my_roster() == [{"pe_id": 1, "name": "Player One"}]

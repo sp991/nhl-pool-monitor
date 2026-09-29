@@ -62,7 +62,7 @@ def _login_blocked_until() -> float:
         return 0.0
 
 
-def browser_login() -> list[dict]:
+def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> list[dict]:
     """Sign in with headless Chromium and store the cookies. Runs only when needed.
 
     The sign-in form is ASP.NET + Telerik: the "Sign in" control is a plain
@@ -146,6 +146,14 @@ def browser_login() -> list[dict]:
                     + f". Screenshot saved as {LOGIN_FAIL_SHOT.name} in the data folder; "
                     "next automatic attempt in 6 h."
                 )
+            # A fresh session has no active pool, and private pages (roster, all-in-one)
+            # bounce to the public demo pool until one is opened. Open ours in the browser
+            # so the saved session already points to it, and note where the roster lands.
+            if pool_id:
+                page.goto(f"{BASE}/grank.aspx?j={pool_id}", wait_until="networkidle", timeout=45000)
+                if entry_id:
+                    page.goto(f"{BASE}/gcomp.aspx?ba={entry_id}", wait_until="networkidle", timeout=45000)
+                    log.info("PoolExpert roster page after sign-in: %s", page.url)
             cookies = ctx.cookies()
         finally:
             browser.close()
@@ -187,10 +195,14 @@ class PoolExpertClient:
         try:
             html = self._get(path, params)
         except SessionExpired:
-            self.http = self._client(browser_login())
+            self.http = self._client(browser_login(self.pool_id, self.entry_id))
             try:
+                # The new session must have our pool selected before private pages work.
+                self._get("grank.aspx", {"j": self.pool_id})
                 html = self._get(path, params)
             except SessionExpired:
+                log.warning("PoolExpert cookies after sign-in: %s",
+                            sorted({(c.name, c.domain) for c in self.http.cookies.jar}))
                 raise RuntimeError(
                     f"PoolExpert still redirects {path} after signing in: check the pool/entry ids "
                     "and that this account belongs to the pool"
