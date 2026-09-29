@@ -27,6 +27,8 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 FORM = "ctl00$ph_cc$ucTopUserLoginForm$"
 # data-type on player links: 1 = G, 2 = team, 3/4/5 = forwards, 6 = D (seen on gcomp.aspx)
 TEAM_TYPE = "2"
+# Public demo pool that signed-out visitors are sent to.
+DEMO_POOL_ID = 57146
 
 
 class SessionExpired(Exception):
@@ -98,7 +100,9 @@ def _open_pool_in_browser(page, pool_id: int, entry_id: int | None) -> dict:
         s = state()
         diag.update(home_url=page.url, home_pool_links=s["pool_links"],
                     signed_in=diag["signed_in"] or s["logout"])
-    goto(s["pool_links"][0] if s["pool_links"] else f"{BASE}/grank.aspx?j={pool_id}")
+    # Prefer a link that opens our pool (j=), e.g. the pool name in the "My pools" menu.
+    links = sorted(s["pool_links"], key=lambda h: f"j={pool_id}" not in h)
+    goto(links[0] if links else f"{BASE}/grank.aspx?j={pool_id}")
     diag["after_pool_url"] = page.url
     if entry_id:
         goto(f"{BASE}/gcomp.aspx?ba={entry_id}")
@@ -135,6 +139,8 @@ def browser_login(pool_id: int | None = None, entry_id: int | None = None) -> li
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         ctx = browser.new_context(user_agent=UA, locale="en-CA", viewport={"width": 1366, "height": 900})
+        # Never let the browser open the public demo pool (see PoolExpertClient._get).
+        ctx.route(f"**/*j={DEMO_POOL_ID}*", lambda route: route.abort())
         page = ctx.new_page()
         try:
             page.goto(f"{BASE}/signinform.aspx", wait_until="networkidle", timeout=45000)
@@ -243,15 +249,21 @@ class PoolExpertClient:
         return httpx.Client(cookies=jar, headers={"User-Agent": UA}, timeout=30, follow_redirects=True)
 
     def _get(self, path: str, params: dict | None = None) -> str:
-        r = self.http.get(f"{BASE}/{path}", params=params)
+        # Follow redirects by hand: never open the public demo pool, since visiting it
+        # while signed in can add it to the account and make it the active pool.
+        url, p = f"{BASE}/{path}", params
+        for _ in range(5):
+            r = self.http.get(url, params=p, follow_redirects=False)
+            if not r.is_redirect:
+                break
+            target = str(r.next_request.url) if r.next_request else r.headers.get("location", "")
+            low = target.lower()
+            if "signinform" in low or path.lower() not in low:
+                log.info("PoolExpert redirected %s to %s: treating session as expired", path, target)
+                raise SessionExpired
+            url, p = target, None
         r.raise_for_status()
-        final = str(r.url).lower()
-        if "signinform" in final or f'name="{FORM}pwd"' in r.text:
-            raise SessionExpired
-        # When not signed in, private pages quietly redirect elsewhere (e.g. to the
-        # public demo pool) instead of the sign-in page.
-        if r.history and path.lower() not in final:
-            log.info("PoolExpert redirected %s to %s: treating session as expired", path, r.url)
+        if f'name="{FORM}pwd"' in r.text:
             raise SessionExpired
         return r.text
 
