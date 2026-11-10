@@ -32,7 +32,10 @@ def _query(league_id: str, interactive: bool = False):
     # so re-read it on every run.
     load_dotenv(DATA_DIR / ".env", override=True)
     token = os.getenv("YAHOO_ACCESS_TOKEN_JSON") or None
-    if not token and not interactive:
+    have_token = bool(
+        token or os.getenv("YAHOO_ACCESS_TOKEN") or os.getenv("YAHOO_REFRESH_TOKEN")
+    )
+    if not have_token and not interactive:
         raise RuntimeError(
             "Yahoo not authorized yet: run `python -m app.yahoo_login` once in the collector container"
         )
