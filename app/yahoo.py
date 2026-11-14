@@ -88,9 +88,11 @@ def rosters(league_id: str) -> dict[int, list[dict]]:
     out: dict[int, list[dict]] = {}
     for t in q.get_league_teams():
         tid = int(_val(t, "team_id"))
-        roster = q.get_team_roster_by_week(tid, "current")
+        from datetime import date
+        roster = q.get_team_roster_player_info_by_date(tid, date.today().isoformat())
         players = []
-        for p in _val(roster, "players", default=[]) or []:
+        plist = roster if isinstance(roster, list) else (_val(roster, "players", default=[]) or [])
+        for p in plist:
             p = getattr(p, "player", p)
             name = _val(p, "full_name") or _val(getattr(p, "name", None), "full", default="")
             players.append(
